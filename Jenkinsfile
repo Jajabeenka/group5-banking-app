@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // GitHub push -> webhook -> Jenkins -> SSH/rsync -> Apache servers (/var/www/html).
 // Uses the SSH Agent plugin + the 'webservers-ssh-key' credential. Put at repo ROOT.
 
