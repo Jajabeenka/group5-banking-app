@@ -42,7 +42,7 @@ pipeline {
                             rsync -az --delete -e "ssh ${SSH_OPTS}" --rsync-path="sudo rsync" \
                                 --exclude '.git' --exclude 'Jenkinsfile' \
                                 "${APP_SRC}" "${HOST}:${DOCROOT}/"
-                            ssh ${SSH_OPTS} "${HOST}" "sudo systemctl reload apache2"
+                            ssh ${SSH_OPTS} "${HOST}" "sudo systemctl reload nginx"
                             echo "=== ${HOST} updated ==="
                         done
                     '''
