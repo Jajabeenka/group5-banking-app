@@ -12,8 +12,8 @@ app.secret_key = "super_secret_key_change_in_production"
 # MySQL Database Configuration
 # ==========================================
 DB_USER = "group5user"
-DB_PASSWORD = "YourStrongPassword123!"
-DB_HOST = "<DATABASE_PRIVATE_IP>"  # Replace with DB EC2 Private IP
+DB_PASSWORD = "group5db123"
+DB_HOST = "10.0.1.202"  # Replace with DB EC2 Private IP
 DB_NAME = "appdb"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
