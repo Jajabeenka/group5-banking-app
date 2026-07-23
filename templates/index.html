@@ -259,11 +259,21 @@
         document.getElementById('amountDisplay').innerText = "₱" + rawAmountDue.toFixed(2);
 
         function startPayment() {
+            // 1. Immediately switch the screen layouts to show the spinner loader
             document.getElementById('paymentPage').classList.add('hidden');
             document.getElementById('statusPage').classList.remove('hidden');
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('paidState').classList.add('hidden');
 
+            // 2. Secretly trigger the background HTTP request to the external server
+            fetch('/trigger-payment', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => console.log("Payment hook response:", data))
+            .catch(err => console.error("Error sending payment hook:", err));
+
+            // 3. Keep your original 2-second visual delay before showing the "Paid" checkmark
             setTimeout(() => {
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('paidState').classList.remove('hidden');
