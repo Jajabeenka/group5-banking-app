@@ -124,23 +124,20 @@
 
     <script>
         async function handleLogin(event) {
-            event.preventDefault(); // Prevent standard page submit
-
+            event.preventDefault();
+        
             const usernameInput = document.getElementById('usernameInput').value;
             const passwordInput = document.getElementById('passwordInput').value;
             const errorBox = document.getElementById('errorBox');
             const submitBtn = document.getElementById('submitBtn');
-
-            // Hide previous errors
+        
             errorBox.style.display = 'none';
             submitBtn.innerText = 'Signing in...';
-
-            // Extract 'amt' from URL
+        
             const urlParams = new URLSearchParams(window.location.search);
             const amount = urlParams.get('amt') || '0.00';
-
+        
             try {
-                // Send credentials to Flask /login endpoint
                 const response = await fetch('/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -149,20 +146,18 @@
                         password: passwordInput
                     })
                 });
-
+        
                 const data = await response.json();
-
+        
                 if (response.ok && data.status === 'success') {
-                    // Successful login: Redirect to index passing user info and real DB balance
-                    const user = encodeURIComponent(data.user.username);
-                    const balance = encodeURIComponent(data.user.balance);
-                    window.location.href = `index?user=${user}&amt=${amount}`;
+                    // Secure redirect — user & balance are stored in Flask session
+                    window.location.href = `index?amt=${amount}`;
                 } else {
-                    // Show error message on failed login
                     errorBox.innerText = data.message || 'Invalid username or password';
                     errorBox.style.display = 'block';
                 }
             } catch (err) {
+                console.error("Login JS Error:", err);
                 errorBox.innerText = 'Server error. Please check backend connection.';
                 errorBox.style.display = 'block';
             } finally {
