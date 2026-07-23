@@ -20,7 +20,7 @@ def index():
 
 @app.route("/pay")
 def pay():
-    requests.get("http://127.0.0.1:5000/payment_success", params={"txn": 123})
+    requests.get("http://18.233.137.78", params={"txn": 123})
     
     return ""
 
