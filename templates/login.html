@@ -156,7 +156,7 @@
                     // Successful login: Redirect to index passing user info and real DB balance
                     const user = encodeURIComponent(data.user.username);
                     const balance = encodeURIComponent(data.user.balance);
-                    window.location.href = `index?user=${user}&amt=${amount}&balance=${balance}`;
+                    window.location.href = `index?user=${user}&amt=${amount}`;
                 } else {
                     // Show error message on failed login
                     errorBox.innerText = data.message || 'Invalid username or password';
