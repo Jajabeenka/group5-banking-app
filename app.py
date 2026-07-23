@@ -89,12 +89,39 @@ def index():
 @app.route('/trigger-payment', methods=['POST'])
 def trigger_payment():
     try:
+        data = request.get_json(silent=True) or {}
+        username = data.get('username')
+        amount_due = float(data.get('amt', 0.0))
+
+        updated_balance = 0.0
+
+        # Query user from MySQL database
+        if username:
+            user = User.query.filter_by(username=username).first()
+            if user:
+                current_balance = float(user.balance or 0.0)
+                # Deduct amount from balance (prevent negative balance)
+                new_balance = max(0.0, current_balance - amount_due)
+                user.balance = new_balance
+
+                # Commit change to MySQL
+                db.session.commit()
+                updated_balance = float(user.balance)
+
         # Hit target transaction logging server
-        requests.get('http://18.233.137.78/payment_success', params={'txn': 123}, timeout=5)
-        return jsonify({'status': 'success'})
+        try:
+            requests.get('http://18.233.137.78/payment_success', params={'txn': 123}, timeout=5)
+        except Exception as ext_e:
+            print(f'External server warning: {ext_e}')
+
+        return jsonify({
+            'status': 'success',
+            'new_balance': updated_balance
+        })
+
     except Exception as e:
-        # Prevents app crash if external server is unreachable
-        print(f'External server error: {e}')
+        db.session.rollback()  # Roll back DB changes if an error occurs
+        print(f'Payment DB error: {e}')
         return jsonify({'status': 'failed', 'error': str(e)}), 500
 
 
