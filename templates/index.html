@@ -248,13 +248,13 @@
     </div>
 
     <script>
-        // Parse redirect variables out of the address bar
+        // 1. Get amount due from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
-        const enteredName = urlParams.get('user') || 'User';
         const rawAmountDue = parseFloat(urlParams.get('amt')) || 0;
     
-        // Retrieve real balance passed from URL
-        const initialBankBalance = parseFloat(urlParams.get('balance')) || 0;
+        // 2. Read secure user & balance injected directly by Flask Jinja template
+        const enteredName = "{{ username }}";
+        const initialBankBalance = parseFloat("{{ balance }}") || 0;
     
         let serverUpdatedBalance = null;
     
