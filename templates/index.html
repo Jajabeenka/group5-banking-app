@@ -256,7 +256,7 @@
         const initialBankBalance = 50000; 
 
         // Set initial amount display dynamically on boot
-        document.getElementById('amountDisplay').innerText = "₱" + rawAmountDue.toFixed(2);
+        document.getElementById('amountDisplay').innerText = rawAmountDue.toFixed(2);
 
         function startPayment() {
             document.getElementById('paymentPage').classList.add('hidden');
