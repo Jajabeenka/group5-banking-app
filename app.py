@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, requests
 
 # template_folder='.' keeps index.html side-by-side with app.py
 app = Flask(__name__)
@@ -17,6 +17,12 @@ def pay():
 def index():
     # Serves the index page when the JavaScript redirect triggers
     return render_template('index.html')
+
+@app.route("/pay")
+def pay():
+    requests.get("http://127.0.0.1:5000/payment_success", params={"txn": 123})
+    
+    return ""
 
 
 if __name__ == '__main__':
