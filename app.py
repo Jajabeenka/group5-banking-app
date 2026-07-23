@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 
 # template_folder='.' keeps index.html side-by-side with app.py
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 
 
 @app.route('/pay')
