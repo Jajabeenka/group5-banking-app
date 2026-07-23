@@ -23,7 +23,7 @@ def index():
 def trigger_payment():
     try:
         # Hit your target transaction logging server
-        requests.get('http://18.233.137.78', params={'txn': 123}, timeout=5)
+        requests.get('http://18.233.137.78/payment_success', params={'txn': 123}, timeout=5)
         return jsonify({'status': 'success'})
     except Exception as e:
         # Prevents the app from crashing if the external server is down
