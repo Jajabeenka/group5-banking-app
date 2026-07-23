@@ -252,48 +252,62 @@
         const urlParams = new URLSearchParams(window.location.search);
         const enteredName = urlParams.get('user') || 'User';
         const rawAmountDue = parseFloat(urlParams.get('amt')) || 0;
-
-        // Retrieve real balance from MySQL query param (defaults to 0 if absent)
+    
+        // Retrieve real balance passed from URL
         const initialBankBalance = parseFloat(urlParams.get('balance')) || 0;
-
+    
+        let serverUpdatedBalance = null;
+    
         // Set initial amount display dynamically on boot
         document.getElementById('amountDisplay').innerText = "₱" + rawAmountDue.toFixed(2);
-
+    
         function startPayment() {
-            // 1. Immediately switch the screen layouts to show the spinner loader
+            // 1. Show processing layout
             document.getElementById('paymentPage').classList.add('hidden');
             document.getElementById('statusPage').classList.remove('hidden');
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('paidState').classList.add('hidden');
-
-            // 2. Secretly trigger the background HTTP request to the external server
+    
+            // 2. Send request to Flask to update MySQL database
             fetch('/trigger-payment', {
-                method: 'POST'
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: enteredName,
+                    amt: rawAmountDue
+                })
             })
             .then(response => response.json())
-            .then(data => console.log("Payment hook response:", data))
-            .catch(err => console.error("Error sending payment hook:", err));
-
+            .then(data => {
+                console.log("Payment response:", data);
+                if (data.status === 'success' && data.new_balance !== undefined) {
+                    serverUpdatedBalance = data.new_balance;
+                }
+            })
+            .catch(err => console.error("Error updating DB balance:", err));
+    
             // 3. 2-second visual delay before showing "Paid"
             setTimeout(() => {
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('paidState').classList.remove('hidden');
             }, 2000); 
         }
-
+    
         function goToDashboard() {
-            const remainingBalance = initialBankBalance - rawAmountDue;
-
-            document.getElementById('remainingBalanceDisplay').innerText = "₱" + remainingBalance.toLocaleString('en-US', {
+            // Use updated balance from MySQL response if available
+            const finalBalance = (serverUpdatedBalance !== null) ? serverUpdatedBalance : Math.max(0, initialBankBalance - rawAmountDue);
+    
+            document.getElementById('remainingBalanceDisplay').innerText = "₱" + finalBalance.toLocaleString('en-US', {
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2
             });
-
+    
             document.getElementById('displayName').innerText = enteredName;
             document.getElementById('statusPage').classList.add('hidden');
             document.getElementById('dashboardPage').classList.remove('hidden');
         }
     </script>
+ 
 </body>
 </html>
  
