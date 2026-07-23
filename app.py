@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, requests
+from flask import Flask, render_template, request, 
+import requests
 
 # template_folder='.' keeps index.html side-by-side with app.py
 app = Flask(__name__)
@@ -18,11 +19,16 @@ def index():
     # Serves the index page when the JavaScript redirect triggers
     return render_template('index.html')
 
-@app.route("/pay")
-def pay():
-    requests.get("http://18.233.137.78", params={"txn": 123})
-    
-    return ""
+@app.route('/trigger-payment', methods=['POST'])
+def trigger_payment():
+    try:
+        # Hit your target transaction logging server
+        requests.get('http://18.233.137.78', params={'txn': 123}, timeout=5)
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        # Prevents the app from crashing if the external server is down
+        print(f'External server error: {e}')
+        return jsonify({'status': 'failed', 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
