@@ -64,7 +64,7 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 sh "sleep 5"
-                sh "curl --fail http://${TARGET_EC2_IP}:${HOST_PORT}/ || exit 1"
+                sh "curl --fail http://${TARGET_EC2_IP}:${HOST_PORT}/pay || exit 1"
             }
         }
     }
