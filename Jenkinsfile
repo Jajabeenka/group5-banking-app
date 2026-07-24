@@ -1,53 +1,77 @@
-// GitHub push -> webhook -> Jenkins -> SSH/rsync -> Apache servers (/var/www/html).
-// Uses the SSH Agent plugin + the 'webservers-ssh-key' credential. Put at repo ROOT.
-
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        disableConcurrentBuilds()
-    }
-
     environment {
-        // ---- EDIT THESE ----
-        SERVERS = 'ubuntu@44.203.231.247'  // AWS webserver
-        DOCROOT = '/var/www/html'                             // Apache default doc root
-        APP_SRC = './'                                        // repo root; 'dist/' if you build
-        // --------------------
+        REGISTRY         = 'jessimey'
+        APP_NAME         = 'group5-banking-app'
+        IMAGE            = 'jessimey/group5-banking-app'
+        TAG              = "${env.GIT_COMMIT.take(7)}"
+        
+        // Target EC2 Details (Update TARGET_EC2_IP if the banking EC2 IP is different)
+        TARGET_EC2_IP    = '34.234.163.173'
+        TARGET_EC2_USER  = 'ubuntu'
+        CONTAINER_PORT   = '5000'
+        HOST_PORT        = '5001'
+        
+        // Jenkins Credentials IDs
+        DOCKER_HUB_CREDS = 'docker-hub-credentials'
+        SSH_KEY_CREDS    = 'webserver-banking-ssh'
     }
 
     stages {
-
-        stage('Checkout') {
-            steps { checkout scm }
-        }
-
-        stage('Build & Test') {
+        stage('Build & Unit Test') {
             steps {
-                // Put real build/test commands here if any, e.g. sh 'npm ci && npm run build'
-                sh 'echo "No build step — deploying repo as-is."'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --no-cache-dir -r requirements.txt pytest
+                    pytest || [ $? -eq 5 ]
+                '''
             }
         }
 
-        stage('Deploy') {
+        stage('Docker Build') {
             steps {
-                sshagent(credentials: ['webservers-ssh-key']) {
-                    sh '''
-                        set -eu
-                        SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-                        for HOST in ${SERVERS}; do
-                            echo "=== Deploying to ${HOST}:${DOCROOT} ==="
-                            # --rsync-path="sudo rsync" lets rsync write to /var/www/html on the server.
-                            rsync -az --delete -e "ssh ${SSH_OPTS}" --rsync-path="sudo rsync" \
-                                --exclude '.git' --exclude 'Jenkinsfile' \
-                                "${APP_SRC}" "${HOST}:${DOCROOT}/"
-                            ssh ${SSH_OPTS} "${HOST}" "sudo systemctl reload nginx"
-                            echo "=== ${HOST} updated ==="
-                        done
-                    '''
+                sh "docker build -t ${IMAGE}:${TAG} -t ${IMAGE}:latest ."
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh "docker push ${IMAGE}:${TAG}"
+                    sh "docker push ${IMAGE}:latest"
                 }
             }
+        }
+
+        stage('Deploy to EC2 Host') {
+            steps {
+                sshagent(["${SSH_KEY_CREDS}"]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${TARGET_EC2_USER}@${TARGET_EC2_IP} "
+                            docker pull ${IMAGE}:${TAG}
+                            docker rm -f ${APP_NAME} 2>/dev/null || true
+                            docker run -d --name ${APP_NAME} --restart always -p ${HOST_PORT}:${CONTAINER_PORT} ${IMAGE}:${TAG}
+                            docker image prune -f
+                        "
+                    """
+                }
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                sh "sleep 5"
+                sh "curl --fail http://${TARGET_EC2_IP}:${HOST_PORT}/ || exit 1"
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${IMAGE}:${TAG} ${IMAGE}:latest || true"
         }
     }
 }
