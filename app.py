@@ -93,7 +93,7 @@ def trigger_payment():
 
         current_balance = float(user.balance or 0.0)
 
-        # CRITICAL VALIDATION: Check if user has enough balance
+        # CRITICAL VALIDATION: Prevent deduction if funds are insufficient
         if current_balance < amount_due:
             return jsonify({
                 'status': 'failed', 

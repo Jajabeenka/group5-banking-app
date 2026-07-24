@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Banco de Waxo</title>
+    <title>Apex Banking</title>
     <style>
         * {
             box-sizing: border-box;
@@ -152,7 +152,7 @@
             font-weight: 700;
         }
 
-        /* --- LOADING & SUCCESS SCREEN --- */
+        /* --- LOADING & STATUS SCREEN --- */
         .status-page {
             justify-content: center;
             align-items: center;
@@ -189,10 +189,35 @@
             box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
         }
 
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 38px;
+            font-weight: bold;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
+        }
+
         .status-text {
             font-size: 24px;
             font-weight: 700;
             color: #1f2937;
+        }
+
+        .error-reason {
+            font-size: 15px;
+            color: #dc2626;
+            margin-top: 10px;
+            background: #fee2e2;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -209,7 +234,7 @@
                 <div class="payment-details">
                     <div class="detail-row">
                         <span class="detail-label">Merchant</span>
-                        <span class="detail-value">Banco de Waxo Services Inc.</span>
+                        <span class="detail-value">Apex Services Inc.</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Invoice Reference</span>
@@ -223,20 +248,30 @@
             </div>
         </div>
 
-        <!-- SCREEN 2: PROCESSING LAYOVER -->
+        <!-- SCREEN 2: PROCESSING / SUCCESS / ERROR STATES -->
         <div id="statusPage" class="page status-page hidden">
+            <!-- Spinner -->
             <div id="loadingState">
                 <div class="spinner"></div>
             </div>
 
+            <!-- Success Visual -->
             <div id="paidState" class="hidden" style="text-align: center; display: flex; flex-direction: column; align-items: center;">
                 <div class="success-icon">✓</div>
-                <div class="status-text">Paid</div>
+                <div class="status-text">Payment Successful</div>
+                <button class="btn" onclick="goToDashboard()" style="margin-top: 35px; padding: 12px 30px; font-size: 15px; width: auto;">Return Home</button>
+            </div>
+
+            <!-- Error Visual -->
+            <div id="errorState" class="hidden" style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <div class="error-icon">✕</div>
+                <div class="status-text">Transaction Failed</div>
+                <div id="errorReasonText" class="error-reason">Insufficient Funds</div>
                 <button class="btn" onclick="goToDashboard()" style="margin-top: 35px; padding: 12px 30px; font-size: 15px; width: auto;">Return Home</button>
             </div>
         </div>
 
-        <!-- SCREEN 3: END ACCOUNTS PANEL -->
+        <!-- SCREEN 3: END ACCOUNTS PANEL (HOME) -->
         <div id="dashboardPage" class="page dashboard-page hidden">
             <div class="user-greeting">Hello, <span id="displayName">User</span></div>
             <div class="balance-card">
@@ -248,25 +283,24 @@
     </div>
 
     <script>
-        // 1. Get amount due from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const rawAmountDue = parseFloat(urlParams.get('amt')) || 0;
-
-        // 2. Read secure user & balance injected directly by Flask Jinja template
+    
         const enteredName = "{{ username }}";
         const initialBankBalance = parseFloat("{{ balance }}") || 0;
-
-        // Set initial amount display dynamically on boot
+    
+        let serverUpdatedBalance = null;
+    
         document.getElementById('amountDisplay').innerText = "₱" + rawAmountDue.toFixed(2);
-
+    
         function startPayment() {
-            // Show processing layout
+            // Show loading view
             document.getElementById('paymentPage').classList.add('hidden');
             document.getElementById('statusPage').classList.remove('hidden');
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('paidState').classList.add('hidden');
-
-            // Send request to Flask to evaluate and update MySQL database
+            document.getElementById('errorState').classList.add('hidden');
+    
             fetch('/trigger-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -275,32 +309,38 @@
                     amt: rawAmountDue
                 })
             })
-            .then(response => {
-                // Check if backend returned a successful status code (200 OK)
-                if (!response.ok) {
-                    return response.json().then(errData => { throw new Error(errData.error || "Payment Failed"); });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Payment response:", data);
-                if (data.status === 'success') {
-                    // Instantly redirect to success page on validation pass
-                    window.location.href = "/success";
-                } else {
-                    window.location.href = `/error?reason=${encodeURIComponent(data.error || 'Unknown error')}`;
-                }
+            .then(async response => {
+                const data = await response.json();
+                
+                // Add an artificial visual delay for UI satisfaction
+                setTimeout(() => {
+                    document.getElementById('loadingState').classList.add('hidden');
+
+                    if (response.ok && data.status === 'success') {
+                        // Success block
+                        serverUpdatedBalance = data.new_balance;
+                        document.getElementById('paidState').classList.remove('hidden');
+                    } else {
+                        // Failure block (e.g. Insufficient funds)
+                        serverUpdatedBalance = initialBankBalance; // Balance is untouched
+                        document.getElementById('errorReasonText').innerText = data.error || "Transaction declined.";
+                        document.getElementById('errorState').classList.remove('hidden');
+                    }
+                }, 1500);
             })
             .catch(err => {
-                console.error("Payment failed:", err);
-                // Redirect to error page on network error or validation failure (like insufficient funds)
-                window.location.href = `/error?reason=${encodeURIComponent(err.message)}`;
+                setTimeout(() => {
+                    document.getElementById('loadingState').classList.add('hidden');
+                    serverUpdatedBalance = initialBankBalance;
+                    document.getElementById('errorReasonText').innerText = "Network connection failed.";
+                    document.getElementById('errorState').classList.remove('hidden');
+                }, 1500);
             });
         }
     
         function goToDashboard() {
-            // Use updated balance from MySQL response if available
-            const finalBalance = (serverUpdatedBalance !== null) ? serverUpdatedBalance : Math.max(0, initialBankBalance - rawAmountDue);
+            // Use the target balance determined during the checkout phase
+            const finalBalance = (serverUpdatedBalance !== null) ? serverUpdatedBalance : initialBankBalance;
     
             document.getElementById('remainingBalanceDisplay').innerText = "₱" + finalBalance.toLocaleString('en-US', {
                 minimumFractionDigits: 2, 
@@ -308,11 +348,11 @@
             });
     
             document.getElementById('displayName').innerText = enteredName;
+            
+            // Navigate cleanly directly into dashboard frame
             document.getElementById('statusPage').classList.add('hidden');
             document.getElementById('dashboardPage').classList.remove('hidden');
         }
     </script>
- 
 </body>
 </html>
- 
