@@ -84,16 +84,27 @@ def trigger_payment():
         data = request.get_json(silent=True) or {}
         amount_due = float(data.get('amt', 0.0))
 
-        updated_balance = 0.0
+        if not username:
+            return jsonify({'status': 'failed', 'error': 'User session expired.'}), 401
 
-        if username:
-            user = User.query.filter_by(username=username).first()
-            if user:
-                current_balance = float(user.balance or 0.0)
-                new_balance = max(0.0, current_balance - amount_due)
-                user.balance = new_balance
-                db.session.commit()
-                updated_balance = float(user.balance)
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({'status': 'failed', 'error': 'User not found.'}), 404
+
+        current_balance = float(user.balance or 0.0)
+
+        # CRITICAL VALIDATION: Check if user has enough balance
+        if current_balance < amount_due:
+            return jsonify({
+                'status': 'failed', 
+                'error': 'Insufficient funds. Transaction denied.'
+            }), 400
+
+        # Deduct only if validation passes
+        new_balance = current_balance - amount_due
+        user.balance = new_balance
+        db.session.commit()
+        updated_balance = float(user.balance)
 
         # External logging call
         try:
@@ -107,6 +118,15 @@ def trigger_payment():
         db.session.rollback()
         return jsonify({'status': 'failed', 'error': str(e)}), 500
 
+# Routes to display the standalone success and error templates
+@app.route('/success')
+def success_page():
+    return render_template('success.html')
+
+@app.route('/error')
+def error_page():
+    reason = request.args.get('reason', 'Transaction Failed')
+    return render_template('error.html', reason=reason)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

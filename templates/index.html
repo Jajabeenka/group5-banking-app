@@ -251,24 +251,22 @@
         // 1. Get amount due from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const rawAmountDue = parseFloat(urlParams.get('amt')) || 0;
-    
+
         // 2. Read secure user & balance injected directly by Flask Jinja template
         const enteredName = "{{ username }}";
         const initialBankBalance = parseFloat("{{ balance }}") || 0;
-    
-        let serverUpdatedBalance = null;
-    
+
         // Set initial amount display dynamically on boot
         document.getElementById('amountDisplay').innerText = "₱" + rawAmountDue.toFixed(2);
-    
+
         function startPayment() {
-            // 1. Show processing layout
+            // Show processing layout
             document.getElementById('paymentPage').classList.add('hidden');
             document.getElementById('statusPage').classList.remove('hidden');
             document.getElementById('loadingState').classList.remove('hidden');
             document.getElementById('paidState').classList.add('hidden');
-    
-            // 2. Send request to Flask to update MySQL database
+
+            // Send request to Flask to evaluate and update MySQL database
             fetch('/trigger-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -277,20 +275,27 @@
                     amt: rawAmountDue
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                // Check if backend returned a successful status code (200 OK)
+                if (!response.ok) {
+                    return response.json().then(errData => { throw new Error(errData.error || "Payment Failed"); });
+                }
+                return response.json();
+            })
             .then(data => {
                 console.log("Payment response:", data);
-                if (data.status === 'success' && data.new_balance !== undefined) {
-                    serverUpdatedBalance = data.new_balance;
+                if (data.status === 'success') {
+                    // Instantly redirect to success page on validation pass
+                    window.location.href = "/success";
+                } else {
+                    window.location.href = `/error?reason=${encodeURIComponent(data.error || 'Unknown error')}`;
                 }
             })
-            .catch(err => console.error("Error updating DB balance:", err));
-    
-            // 3. 2-second visual delay before showing "Paid"
-            setTimeout(() => {
-                document.getElementById('loadingState').classList.add('hidden');
-                document.getElementById('paidState').classList.remove('hidden');
-            }, 2000); 
+            .catch(err => {
+                console.error("Payment failed:", err);
+                // Redirect to error page on network error or validation failure (like insufficient funds)
+                window.location.href = `/error?reason=${encodeURIComponent(err.message)}`;
+            });
         }
     
         function goToDashboard() {
